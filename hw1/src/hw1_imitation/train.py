@@ -129,6 +129,58 @@ def run_training(config: TrainConfig) -> None:
 
     ### TODO: PUT YOUR MAIN TRAINING LOOP HERE ###
 
+    step =0
+
+
+    optimizer = torch.optim.Adam(model.parameters() , lr= config.lr, weight_decay=config.weight_decay)
+
+    from hw1_imitation.evaluation import evaluate_policy
+
+    for epoch in range(config.num_epochs):
+        for state , expert_actions in loader : 
+            state = state.to(device)
+            expert_actions=expert_actions.to(device)
+
+            optimizer.zero_grad()
+            loss = model.compute_loss(state,expert_actions)
+            loss.backward()
+            optimizer.step()
+
+            step +=1
+
+            if step%config.log_interval==0 : 
+                wandb.log({"train/loss":loss.item()},step=step)
+
+            if step % config.eval_interval == 0 :
+                evaluate_policy(
+                    model = model,
+                    normalizer = normalizer,
+                    device = device ,
+                    chunk_size = config.chunk_size,
+                    video_size= config.video_size,
+                    flow_num_steps=config.flow_num_steps,
+                    num_video_episodes=config.num_video_episodes,
+                    step = step,
+                    logger = logger                
+                )
+                
+                model.eval()
+                
+    if step % config.eval_interval != 0 :
+        evaluate_policy(
+             model = model,
+             normalizer = normalizer,
+            device = device ,
+            chunk_size = config.chunk_size,
+            video_size= config.video_size,
+            flow_num_steps=config.flow_num_steps,
+            num_video_episodes=config.num_video_episodes,
+            step = step,
+            logger = logger                
+         )
+                        
+
+
     logger.dump_for_grading()
 
 
